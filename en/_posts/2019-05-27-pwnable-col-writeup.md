@@ -3,14 +3,16 @@ layout: post
 title: Pwnable.kr - col | Writeup
 lang: en
 lang-ref: pwnable-col-writeup
-description: 
+description:
 ---
 
-# Analiz
+# Analyse
 
 Program argüman olarak verdiğimiz değeri bir hash fonksiyonuna sokuyor. Çıkan değer eğer hashcode değişkenine eşitse başarılı oluyoruz.
 
-Hash fonksiyonunu inceleyelim:
+Program calculates a hash from the argument we give then compares it with the variable hashcode. If they are same, we get the flag.
+
+Let's inspect hash function:
 
 ```c
 unsigned long check_password(const char* p){
@@ -24,16 +26,13 @@ unsigned long check_password(const char* p){
 }
 ```
 
-
-Program argümanı string olarak alıyor ve bu değere bir integer pointer atıyor. Sonrasında da integer pointerların point ettiği değerleri toplayıp hash'i döndürüyor. Yani olan şey aslında şu,
-
-Programa **AAAABBBBCCCCDDDDEEEE** argümanını verdiğimizi düşünelim. Bu argümanlar stack'e şu şekilde yerleşecek.
+Let's give **AAAABBBBCCCCDDDDEEEE** to the program as argument. This argument will be placed to the stack like this
 
 ```c
 0x41414141 0x42424242 0x43434343 0x44444444 0x45454545
 ```
 
-**check_password** fonksiyonuna verilen **p** argümanı char pointer tipinde. **p**'nin değerlerini şu şekilde gösterebiliriz:
+Type of the parameter **p** which is given to the **check_password** is char pointer. We can show it like this:
 
 ```c
 p[0] = 'A';
@@ -46,8 +45,8 @@ p[5] = 'B';
 ...
 ```
 
-C programlama dilinde int'in boyutu 4 byte'tır. Program **p** değişkenini **int \*** şeklinde ip değerine atınca bu sefer yukarıdaki gibi elemanlar 1 byte'lık kısımlar değil , integer'ın boyutu 4 byte olduğundan ötürü 4 byte'lık kısımlar tutacak.
-Yani **ip** değişkeni şu şekilde olacak:
+In C programming, size of int is 4 bytes. So when we assign an integer pointer to **p**, each element will point to 4 bytes of data instead of 1.
+So it will be like this:
 
 ```c
 ip[0] -> 0x41414141 // AAAA
@@ -57,10 +56,9 @@ ip[3] -> 0x44444444 // DDDD
 ip[4] -> 0x45454545 // EEEE
 ```
 
-Biz bu değerlerin toplamının **0x21DD09EC** yani **568134124** olduğu bir argüman girip sonuca ulaşabiliriz.
-Bunu yapmanın en kolay yolu string bir değer girmek yerine hexadecimal bir değer vererek direktman memory'ye etki etmek.
+We need to find 5 integers and their sums should be **0x21DD09EC**. To do this, we use python to write hexadecimals to the memory.
 
-# Çözüm
+# Solution
 ```sh
 ./col `python -c "print '\xc8\xce\xc5\x06' * 4 + '\xcc\xce\xc5\x06'"`
 ```

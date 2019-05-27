@@ -3,21 +3,21 @@ layout: post
 title: Pwnable.kr - fd | Writeup
 lang: en
 lang-ref: pwnable-fd-writeup
-description: 
+description:
 ---
 
-### Bilinmesi gerekenler
+### Need to know
 - Linux file descriptors
 
-### Analiz
+### Analyse
 
-**fd.c** dosyasını incelediğimizde **read** fonksiyonuyla **buf** değişkeninin içine bir değer okunduğunu görüyoruz.
+When we inspect **fd.c**, we see that it reads a value into **buf** variable by using the **read** function.
 
 ```c
 readlen = read(fd, buf, 32);
 ```
 
-Sonrasında da program şöyle devam ediyor.
+Then program continues like this:
 
 ```c
 if(!strcmp("LETMEWIN\n", buf)){
@@ -27,16 +27,16 @@ if(!strcmp("LETMEWIN\n", buf)){
 }
 ```
 
-
-**buf**'ın içine istediğimiz değeri koyabilmek için **read** fonksiyonunun kullandığı **file descriptor**'u **STDIN**  yapmamız. Bu sayede program bizden girdi bekleyecek ve **buf**'ın değerini direktman değiştirebileceğiz.
+**read** function basically gets an input from the given **file descriptor**. Since standard input has already a file descriptor which is **STDIN**, give this as **fd** to the **read** function and make it get input from standard input.
 
 ```c
 int fd = atoi( argv[1] ) - 0x1234;
 ```
 
-Program yukarıda verdiğimiz 1. argumanı integer'a çevirip sonrasında 16 lık tabanda 0x1234 değerinden çıkarıyor ve bunu fd'ye eşitliyor. **STDIN**'in numerik karşılığı 0, yani girdiğimiz değer 0x1234'ün 10 luk tabanda karşılığı olmalı. Terminale python komutunu girip, sonrasında da 0x1234 yazarak sayının 10 tabanında değerini alabiliriz.
+Program converts the first argument to integer and it substracts 0x1234 from it (which is 4660 in base 10). **STDIN** equals to 0, we should give 4660 to the program.
 
 ### Çözüm
-```sh
+```
 ./fd 4660
+[ Program waits for input ] LETMEWIN  
 ```

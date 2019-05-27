@@ -3,22 +3,22 @@ layout: post
 title: Pwnable.kr - flag | Writeup
 lang: en
 lang-ref: pwnable-flag-writeup
-description: 
+description:
 ---
 
-### İpucu
+### Hint
 - UPX packer
 
-### Analiz
+### Analyse
 
-**flag** dosyasını gdb'de açmaya çalıştığımızda ve **disas main** dediğimizde bir sorunla karşılaşıyoruz.
+When we open **flag** with gdb and run **disas main**, an error message shows up.
 
 ```
 (gdb) disas main
 No symbol table is loaded.  Use the "file" command.
 ```
 
-Daha sonrasında **strings** komutunu kullandığımızda sorunun ne olduğunu anlayabiliriz.
+Then when we use **strings** command, we can immediately understand the problem.
 
 ```
 strings ./flag
@@ -29,13 +29,15 @@ $Info: This file is packed with the UPX executable packer http://upx.sf.net $
 ...
 ```
 
-Meğersem program decompile edilmesin diye **UPX** ile işleme sokulmuş. Bunun üstesinden gelmek için **upx** komutunu kullanıyoruz.
+Program is packed with **UPX** packer. For more information about this process, please google it. To unpack the program, we use **upx** command:
 
 ```sh
 upx -d flag
 ```
 
-Şimdi ise programı çalıştırıyoruz ve program bize **flag**'i **strcpy** kullanarak bir variable'ın içine kopyalayacağını söylüyor. Hemen **gdb** ile bu **flag**'i bulalım.
+Then when we execute the program, it says that it will **strcpy** the flag to a variable. Let's find the **flag** with **gdb**.
+
+### Solution
 
 ```
 (gdb) disas main
@@ -47,7 +49,5 @@ End of assembler dump.
 (gdb) x/wx 0x6c2070
 0x6c2070 <flag>:	0x00496628
 (gdb) x/s 0x00496628
-0x496628:	**SANSÜRLENMİŞ FLAG**
+0x496628:	**CENSORED**
 ```
-
-Görüldüğü üzere önce **flag**'e point eden değeri bulduk. Daha sonra da bu değeri **x/s** yaparak direkt okuyabildik.
