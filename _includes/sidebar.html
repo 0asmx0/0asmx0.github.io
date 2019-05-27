@@ -1,0 +1,36 @@
+<div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          {{ site.title }}
+        </a>
+      </h1>
+
+      <p class="lead">{{ site.description[page.lang] }}</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item{% if page.url == site.baseurl %} active{% endif %}" href="/{{ page.lang }}">{{ site.data.translations.all_posts[page.lang]}}</a>
+
+      {% comment %}
+        The code below dynamically generates a sidebar nav of pages with
+        `layout: page` in the front-matter. See readme for usage.
+      {% endcomment %}
+
+      {% assign pages_list = site.pages | where:"lang", page.lang %}
+      {% for node in pages_list %}
+        {% if node.title != null %}
+          {% if node.layout == "page" %}
+            <a class="sidebar-nav-item{% if page.url == node.url %} active{% endif %}" href="{{ node.url }}">{{ node.title }}</a>
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    </nav>
+    <a href="https://www.github.com/0asmx0/"><i class="fab fa-github"> Github</i></a> <br>
+    <a href="https://twitter.com/Asmx86195224"><i class="fab fa-twitter"> Twitter</i></a>
+    <i class="far fa-envelope"> 0asmx0@protonmail.com </i>
+    <br><br>
+    <p>&copy; {{ site.time | date: '%Y' }}. All rights reserved.</p>
+  </div>
+</div>

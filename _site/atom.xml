@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>Asmx</title>
+ <link href="http://localhost:4000/atom.xml" rel="self"/>
+ <link href="http://localhost:4000/"/>
+ <updated>2019-05-27T17:12:15+03:00</updated>
+ <id>http://localhost:4000</id>
+ <author>
+   <name></name>
+   <email></email>
+ </author>
+
+ 
+ <entry>
+   <title>Pwnable.kr - flag | Çözüm</title>
+   <link href="http://localhost:4000/tr/2019/05/27/pwnable-flag-writeup/"/>
+   <updated>2019-05-27T00:00:00+03:00</updated>
+   <id>http://localhost:4000/tr/2019/05/27/pwnable-flag-writeup</id>
+   <content type="html">&lt;h3 id=&quot;i̇pucu&quot;&gt;İpucu&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;UPX packer&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;analiz&quot;&gt;Analiz&lt;/h3&gt;
+
+&lt;p&gt;&lt;strong&gt;flag&lt;/strong&gt; dosyasını gdb’de açmaya çalıştığımızda ve &lt;strong&gt;disas main&lt;/strong&gt; dediğimizde bir sorunla karşılaşıyoruz.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(gdb) disas main
+No symbol table is loaded.  Use the &quot;file&quot; command.
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Daha sonrasında &lt;strong&gt;strings&lt;/strong&gt; komutunu kullandığımızda sorunun ne olduğunu anlayabiliriz.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;strings ./flag
+
+UPX!
+...
+$Info: This file is packed with the UPX executable packer http://upx.sf.net $
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Meğersem program decompile edilmesin diye &lt;strong&gt;UPX&lt;/strong&gt; ile işleme sokulmuş. Bunun üstesinden gelmek için &lt;strong&gt;upx&lt;/strong&gt; komutunu kullanıyoruz.&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;upx &lt;span class=&quot;nt&quot;&gt;-d&lt;/span&gt; flag
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Şimdi ise programı çalıştırıyoruz ve program bize &lt;strong&gt;flag&lt;/strong&gt;‘i &lt;strong&gt;strcpy&lt;/strong&gt; kullanarak bir variable’ın içine kopyalayacağını söylüyor. Hemen &lt;strong&gt;gdb&lt;/strong&gt; ile bu &lt;strong&gt;flag&lt;/strong&gt;‘i bulalım.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(gdb) disas main
+Dump of assembler code for function main:
+   ...
+   0x0000000000401184 &amp;lt;+32&amp;gt;:	mov    rdx,QWORD PTR [rip+0x2c0ee5]        # 0x6c2070 &amp;lt;flag&amp;gt;
+   ...   
+End of assembler dump.
+(gdb) x/wx 0x6c2070
+0x6c2070 &amp;lt;flag&amp;gt;:	0x00496628
+(gdb) x/s 0x00496628
+0x496628:	**SANSÜRLENMİŞ FLAG**
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Görüldüğü üzere önce &lt;strong&gt;flag&lt;/strong&gt;‘e point eden değeri bulduk. Daha sonra da bu değeri &lt;strong&gt;x/s&lt;/strong&gt; yaparak direkt okuyabildik.&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Pwnable.kr - fd | Çözüm</title>
+   <link href="http://localhost:4000/tr/2019/05/27/pwnable-fd-writeup/"/>
+   <updated>2019-05-27T00:00:00+03:00</updated>
+   <id>http://localhost:4000/tr/2019/05/27/pwnable-fd-writeup</id>
+   <content type="html">&lt;h3 id=&quot;bilinmesi-gerekenler&quot;&gt;Bilinmesi gerekenler&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Linux file descriptors&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;analiz&quot;&gt;Analiz&lt;/h3&gt;
+
+&lt;p&gt;&lt;strong&gt;fd.c&lt;/strong&gt; dosyasını incelediğimizde &lt;strong&gt;read&lt;/strong&gt; fonksiyonuyla &lt;strong&gt;buf&lt;/strong&gt; değişkeninin içine bir değer okunduğunu görüyoruz.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;readlen&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;32&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Sonrasında da program şöyle devam ediyor.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;!&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strcmp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;LETMEWIN&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)){&lt;/span&gt;
+ &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;good job :)&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+ &lt;span class=&quot;n&quot;&gt;system&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;/bin/cat flag&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+ &lt;span class=&quot;n&quot;&gt;exit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;buf&lt;/strong&gt;‘ın içine istediğimiz değeri koyabilmek için &lt;strong&gt;read&lt;/strong&gt; fonksiyonunun kullandığı &lt;strong&gt;file descriptor&lt;/strong&gt;‘u &lt;strong&gt;STDIN&lt;/strong&gt;  yapmamız. Bu sayede program bizden girdi bekleyecek ve &lt;strong&gt;buf&lt;/strong&gt;‘ın değerini direktman değiştirebileceğiz.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;fd&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;atoi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x1234&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Program yukarıda verdiğimiz 1. argumanı integer’a çevirip sonrasında 16 lık tabanda 0x1234 değerinden çıkarıyor ve bunu fd’ye eşitliyor. &lt;strong&gt;STDIN&lt;/strong&gt;‘in numerik karşılığı 0, yani girdiğimiz değer 0x1234’ün 10 luk tabanda karşılığı olmalı. Terminale python komutunu girip, sonrasında da 0x1234 yazarak sayının 10 tabanında değerini alabiliriz.&lt;/p&gt;
+
+&lt;h3 id=&quot;çözüm&quot;&gt;Çözüm&lt;/h3&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;./fd 4660
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Pwnable.kr - flag | Çözüm</title>
+   <link href="http://localhost:4000/tr/2019/05/27/pwnable-col-writeup/"/>
+   <updated>2019-05-27T00:00:00+03:00</updated>
+   <id>http://localhost:4000/tr/2019/05/27/pwnable-col-writeup</id>
+   <content type="html">&lt;h1 id=&quot;analiz&quot;&gt;Analiz&lt;/h1&gt;
+
+&lt;p&gt;Program argüman olarak verdiğimiz değeri bir hash fonksiyonuna sokuyor. Çıkan değer eğer hashcode değişkenine eşitse başarılı oluyoruz.&lt;/p&gt;
+
+&lt;p&gt;Hash fonksiyonunu inceleyelim:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;unsigned&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;long&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;check_password&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;){&lt;/span&gt;
+ &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+ &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+ &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;res&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+ &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;){&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;res&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+ &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+ &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;res&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Program argümanı string olarak alıyor ve bu değere bir integer pointer atıyor. Sonrasında da integer pointerların point ettiği değerleri toplayıp hash’i döndürüyor. Yani olan şey aslında şu,&lt;/p&gt;
+
+&lt;p&gt;Programa &lt;strong&gt;AAAABBBBCCCCDDDDEEEE&lt;/strong&gt; argümanını verdiğimizi düşünelim. Bu argümanlar stack’e şu şekilde yerleşecek.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;mh&quot;&gt;0x41414141&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x42424242&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x43434343&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x44444444&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x45454545&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;check_password&lt;/strong&gt; fonksiyonuna verilen &lt;strong&gt;p&lt;/strong&gt; argümanı char pointer tipinde. &lt;strong&gt;p&lt;/strong&gt;‘nin değerlerini şu şekilde gösterebiliriz:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'B'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'B'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;C programlama dilinde int’in boyutu 4 byte’tır. Program &lt;strong&gt;p&lt;/strong&gt; değişkenini &lt;strong&gt;int *&lt;/strong&gt; şeklinde ip değerine atınca bu sefer yukarıdaki gibi elemanlar 1 byte’lık kısımlar değil , integer’ın boyutu 4 byte olduğundan ötürü 4 byte’lık kısımlar tutacak.
+Yani &lt;strong&gt;ip&lt;/strong&gt; değişkeni şu şekilde olacak:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x41414141&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// AAAA&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x42424242&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// BBBB&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x43434343&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// CCCC&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x44444444&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// DDDD&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x45454545&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// EEEE&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Biz bu değerlerin toplamının &lt;strong&gt;0x21DD09EC&lt;/strong&gt; yani &lt;strong&gt;568134124&lt;/strong&gt; olduğu bir argüman girip sonuca ulaşabiliriz.
+Bunu yapmanın en kolay yolu string bir değer girmek yerine hexadecimal bir değer vererek direktman memory’ye etki etmek.&lt;/p&gt;
+
+&lt;h1 id=&quot;çözüm&quot;&gt;Çözüm&lt;/h1&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;./col &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;python &lt;span class=&quot;nt&quot;&gt;-c&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;print '&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;c8&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;ce&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;c5&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;06' * 4 + '&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;cc&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;ce&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;c5&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;06'&quot;&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Pwnable.kr - flag | Writeup</title>
+   <link href="http://localhost:4000/en/2019/05/27/pwnable-flag-writeup/"/>
+   <updated>2019-05-27T00:00:00+03:00</updated>
+   <id>http://localhost:4000/en/2019/05/27/pwnable-flag-writeup</id>
+   <content type="html">&lt;h3 id=&quot;i̇pucu&quot;&gt;İpucu&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;UPX packer&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;analiz&quot;&gt;Analiz&lt;/h3&gt;
+
+&lt;p&gt;&lt;strong&gt;flag&lt;/strong&gt; dosyasını gdb’de açmaya çalıştığımızda ve &lt;strong&gt;disas main&lt;/strong&gt; dediğimizde bir sorunla karşılaşıyoruz.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(gdb) disas main
+No symbol table is loaded.  Use the &quot;file&quot; command.
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Daha sonrasında &lt;strong&gt;strings&lt;/strong&gt; komutunu kullandığımızda sorunun ne olduğunu anlayabiliriz.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;strings ./flag
+
+UPX!
+...
+$Info: This file is packed with the UPX executable packer http://upx.sf.net $
+...
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Meğersem program decompile edilmesin diye &lt;strong&gt;UPX&lt;/strong&gt; ile işleme sokulmuş. Bunun üstesinden gelmek için &lt;strong&gt;upx&lt;/strong&gt; komutunu kullanıyoruz.&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;upx &lt;span class=&quot;nt&quot;&gt;-d&lt;/span&gt; flag
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Şimdi ise programı çalıştırıyoruz ve program bize &lt;strong&gt;flag&lt;/strong&gt;‘i &lt;strong&gt;strcpy&lt;/strong&gt; kullanarak bir variable’ın içine kopyalayacağını söylüyor. Hemen &lt;strong&gt;gdb&lt;/strong&gt; ile bu &lt;strong&gt;flag&lt;/strong&gt;‘i bulalım.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;(gdb) disas main
+Dump of assembler code for function main:
+   ...
+   0x0000000000401184 &amp;lt;+32&amp;gt;:	mov    rdx,QWORD PTR [rip+0x2c0ee5]        # 0x6c2070 &amp;lt;flag&amp;gt;
+   ...   
+End of assembler dump.
+(gdb) x/wx 0x6c2070
+0x6c2070 &amp;lt;flag&amp;gt;:	0x00496628
+(gdb) x/s 0x00496628
+0x496628:	**SANSÜRLENMİŞ FLAG**
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Görüldüğü üzere önce &lt;strong&gt;flag&lt;/strong&gt;‘e point eden değeri bulduk. Daha sonra da bu değeri &lt;strong&gt;x/s&lt;/strong&gt; yaparak direkt okuyabildik.&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Pwnable.kr - fd | Writeup</title>
+   <link href="http://localhost:4000/en/2019/05/27/pwnable-fd-writeup/"/>
+   <updated>2019-05-27T00:00:00+03:00</updated>
+   <id>http://localhost:4000/en/2019/05/27/pwnable-fd-writeup</id>
+   <content type="html">&lt;h3 id=&quot;bilinmesi-gerekenler&quot;&gt;Bilinmesi gerekenler&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;Linux file descriptors&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;analiz&quot;&gt;Analiz&lt;/h3&gt;
+
+&lt;p&gt;&lt;strong&gt;fd.c&lt;/strong&gt; dosyasını incelediğimizde &lt;strong&gt;read&lt;/strong&gt; fonksiyonuyla &lt;strong&gt;buf&lt;/strong&gt; değişkeninin içine bir değer okunduğunu görüyoruz.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;readlen&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fd&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;32&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Sonrasında da program şöyle devam ediyor.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;!&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strcmp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;LETMEWIN&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;buf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)){&lt;/span&gt;
+ &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;good job :)&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+ &lt;span class=&quot;n&quot;&gt;system&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;/bin/cat flag&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+ &lt;span class=&quot;n&quot;&gt;exit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;buf&lt;/strong&gt;‘ın içine istediğimiz değeri koyabilmek için &lt;strong&gt;read&lt;/strong&gt; fonksiyonunun kullandığı &lt;strong&gt;file descriptor&lt;/strong&gt;‘u &lt;strong&gt;STDIN&lt;/strong&gt;  yapmamız. Bu sayede program bizden girdi bekleyecek ve &lt;strong&gt;buf&lt;/strong&gt;‘ın değerini direktman değiştirebileceğiz.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;fd&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;atoi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x1234&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Program yukarıda verdiğimiz 1. argumanı integer’a çevirip sonrasında 16 lık tabanda 0x1234 değerinden çıkarıyor ve bunu fd’ye eşitliyor. &lt;strong&gt;STDIN&lt;/strong&gt;‘in numerik karşılığı 0, yani girdiğimiz değer 0x1234’ün 10 luk tabanda karşılığı olmalı. Terminale python komutunu girip, sonrasında da 0x1234 yazarak sayının 10 tabanında değerini alabiliriz.&lt;/p&gt;
+
+&lt;h3 id=&quot;çözüm&quot;&gt;Çözüm&lt;/h3&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;./fd 4660
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Pwnable.kr - col | Writeup</title>
+   <link href="http://localhost:4000/en/2019/05/27/pwnable-col-writeup/"/>
+   <updated>2019-05-27T00:00:00+03:00</updated>
+   <id>http://localhost:4000/en/2019/05/27/pwnable-col-writeup</id>
+   <content type="html">&lt;h1 id=&quot;analiz&quot;&gt;Analiz&lt;/h1&gt;
+
+&lt;p&gt;Program argüman olarak verdiğimiz değeri bir hash fonksiyonuna sokuyor. Çıkan değer eğer hashcode değişkenine eşitse başarılı oluyoruz.&lt;/p&gt;
+
+&lt;p&gt;Hash fonksiyonunu inceleyelim:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;unsigned&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;long&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;check_password&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;){&lt;/span&gt;
+ &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+ &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+ &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;res&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+ &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;){&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;res&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+ &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+ &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;res&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Program argümanı string olarak alıyor ve bu değere bir integer pointer atıyor. Sonrasında da integer pointerların point ettiği değerleri toplayıp hash’i döndürüyor. Yani olan şey aslında şu,&lt;/p&gt;
+
+&lt;p&gt;Programa &lt;strong&gt;AAAABBBBCCCCDDDDEEEE&lt;/strong&gt; argümanını verdiğimizi düşünelim. Bu argümanlar stack’e şu şekilde yerleşecek.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;mh&quot;&gt;0x41414141&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x42424242&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x43434343&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x44444444&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x45454545&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;check_password&lt;/strong&gt; fonksiyonuna verilen &lt;strong&gt;p&lt;/strong&gt; argümanı char pointer tipinde. &lt;strong&gt;p&lt;/strong&gt;‘nin değerlerini şu şekilde gösterebiliriz:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'B'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;sc&quot;&gt;'B'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;C programlama dilinde int’in boyutu 4 byte’tır. Program &lt;strong&gt;p&lt;/strong&gt; değişkenini &lt;strong&gt;int *&lt;/strong&gt; şeklinde ip değerine atınca bu sefer yukarıdaki gibi elemanlar 1 byte’lık kısımlar değil , integer’ın boyutu 4 byte olduğundan ötürü 4 byte’lık kısımlar tutacak.
+Yani &lt;strong&gt;ip&lt;/strong&gt; değişkeni şu şekilde olacak:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x41414141&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// AAAA&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x42424242&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// BBBB&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x43434343&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// CCCC&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x44444444&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// DDDD&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x45454545&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// EEEE&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Biz bu değerlerin toplamının &lt;strong&gt;0x21DD09EC&lt;/strong&gt; yani &lt;strong&gt;568134124&lt;/strong&gt; olduğu bir argüman girip sonuca ulaşabiliriz.
+Bunu yapmanın en kolay yolu string bir değer girmek yerine hexadecimal bir değer vererek direktman memory’ye etki etmek.&lt;/p&gt;
+
+&lt;h1 id=&quot;çözüm&quot;&gt;Çözüm&lt;/h1&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;./col &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;python &lt;span class=&quot;nt&quot;&gt;-c&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;print '&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;c8&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;ce&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;c5&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;06' * 4 + '&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;cc&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;ce&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;c5&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;06'&quot;&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+</content>
+ </entry>
+ 
+
+</feed>

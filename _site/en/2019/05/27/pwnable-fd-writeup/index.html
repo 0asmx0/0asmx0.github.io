@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <!-- Enable responsiveness on mobile devices-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Pwnable.kr - fd | Writeup &middot; Asmx
+    
+  </title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/public/css/poole.css">
+  <link rel="stylesheet" href="/public/css/syntax.css">
+  <link rel="stylesheet" href="/public/css/hyde.css">
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700|Abril+Fatface">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-144-precomposed.png">
+                                 <link rel="shortcut icon" href="/public/favicon.ico">
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
+
+  
+  
+  
+    
+  <link rel="alternate" hreflang="en" href="/en/2019/05/27/pwnable-fd-writeup/" />
+    
+  <link rel="alternate" hreflang="tr" href="/tr/2019/05/27/pwnable-fd-writeup/" />
+    
+  
+</head>
+
+
+  <body>
+
+    <div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          Asmx
+        </a>
+      </h1>
+
+      <p class="lead">Journey of an aspiring hacker who avoids being a script kiddie..</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item" href="/en">Posts</a>
+
+      
+
+      
+      
+        
+          
+            <a class="sidebar-nav-item" href="/en/about/">About</a>
+          
+        
+      
+        
+          
+        
+      
+    </nav>
+    <a href="https://www.github.com/0asmx0/"><i class="fab fa-github"> Github</i></a> <br>
+    <a href="https://twitter.com/Asmx86195224"><i class="fab fa-twitter"> Twitter</i></a>
+    <i class="far fa-envelope"> 0asmx0@protonmail.com </i>
+    <br><br>
+    <p>&copy; 2019. All rights reserved.</p>
+  </div>
+</div>
+
+
+    <div class="content container">
+      <div class="post">
+  <h1 class="post-title">Pwnable.kr - fd | Writeup</h1>
+  <span class="post-date">27 May 2019</span>
+  <h3 id="bilinmesi-gerekenler">Bilinmesi gerekenler</h3>
+<ul>
+  <li>Linux file descriptors</li>
+</ul>
+
+<h3 id="analiz">Analiz</h3>
+
+<p><strong>fd.c</strong> dosyasını incelediğimizde <strong>read</strong> fonksiyonuyla <strong>buf</strong> değişkeninin içine bir değer okunduğunu görüyoruz.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">readlen</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">32</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>Sonrasında da program şöyle devam ediyor.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span><span class="p">(</span><span class="o">!</span><span class="n">strcmp</span><span class="p">(</span><span class="s">"LETMEWIN</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">buf</span><span class="p">)){</span>
+ <span class="n">printf</span><span class="p">(</span><span class="s">"good job :)</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+ <span class="n">system</span><span class="p">(</span><span class="s">"/bin/cat flag"</span><span class="p">);</span>
+ <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><strong>buf</strong>‘ın içine istediğimiz değeri koyabilmek için <strong>read</strong> fonksiyonunun kullandığı <strong>file descriptor</strong>‘u <strong>STDIN</strong>  yapmamız. Bu sayede program bizden girdi bekleyecek ve <strong>buf</strong>‘ın değerini direktman değiştirebileceğiz.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">int</span> <span class="n">fd</span> <span class="o">=</span> <span class="n">atoi</span><span class="p">(</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">)</span> <span class="o">-</span> <span class="mh">0x1234</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>Program yukarıda verdiğimiz 1. argumanı integer’a çevirip sonrasında 16 lık tabanda 0x1234 değerinden çıkarıyor ve bunu fd’ye eşitliyor. <strong>STDIN</strong>‘in numerik karşılığı 0, yani girdiğimiz değer 0x1234’ün 10 luk tabanda karşılığı olmalı. Terminale python komutunu girip, sonrasında da 0x1234 yazarak sayının 10 tabanında değerini alabiliriz.</p>
+
+<h3 id="çözüm">Çözüm</h3>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./fd 4660
+</code></pre></div></div>
+
+</div>
+
+
+<div class="related">
+  <h2>Related Posts</h2>
+  
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/en/2019/05/27/pwnable-flag-writeup/">
+            Pwnable.kr - flag | Writeup
+            <small>27 May 2019</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/en/2019/05/27/pwnable-col-writeup/">
+            Pwnable.kr - col | Writeup
+            <small>27 May 2019</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      
+    
+    
+    
+    <footer class="lang-options">
+        <em>Read this page in a different language:</em>
+        <ul>
+        
+        <li><a title="View in English" class="en" href="/en/2019/05/27/pwnable-fd-writeup/">🇺🇸 English</a></li>
+        
+        <li><a title="View in Turkish" class="tr" href="/tr/2019/05/27/pwnable-fd-writeup/">🇹🇷 Turkish</a></li>
+        
+        </ul>
+    </div>
+    
+
+    </div>
+  </body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <!-- Enable responsiveness on mobile devices-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Pwnable.kr - flag | Çözüm &middot; Asmx
+    
+  </title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/public/css/poole.css">
+  <link rel="stylesheet" href="/public/css/syntax.css">
+  <link rel="stylesheet" href="/public/css/hyde.css">
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700|Abril+Fatface">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-144-precomposed.png">
+                                 <link rel="shortcut icon" href="/public/favicon.ico">
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
+
+  
+  
+  
+    
+  <link rel="alternate" hreflang="en" href="/en/2019/05/27/pwnable-col-writeup/" />
+    
+  <link rel="alternate" hreflang="tr" href="/tr/2019/05/27/pwnable-col-writeup/" />
+    
+  
+</head>
+
+
+  <body>
+
+    <div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          Asmx
+        </a>
+      </h1>
+
+      <p class="lead">Yeni yetme bir hacker'ın yolculuğu..</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item" href="/tr">Paylaşımlar</a>
+
+      
+
+      
+      
+        
+          
+            <a class="sidebar-nav-item" href="/tr/about/">Hakkımda</a>
+          
+        
+      
+        
+          
+        
+      
+    </nav>
+    <a href="https://www.github.com/0asmx0/"><i class="fab fa-github"> Github</i></a> <br>
+    <a href="https://twitter.com/Asmx86195224"><i class="fab fa-twitter"> Twitter</i></a>
+    <i class="far fa-envelope"> 0asmx0@protonmail.com </i>
+    <br><br>
+    <p>&copy; 2019. All rights reserved.</p>
+  </div>
+</div>
+
+
+    <div class="content container">
+      <div class="post">
+  <h1 class="post-title">Pwnable.kr - flag | Çözüm</h1>
+  <span class="post-date">27 May 2019</span>
+  <h1 id="analiz">Analiz</h1>
+
+<p>Program argüman olarak verdiğimiz değeri bir hash fonksiyonuna sokuyor. Çıkan değer eğer hashcode değişkenine eşitse başarılı oluyoruz.</p>
+
+<p>Hash fonksiyonunu inceleyelim:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">check_password</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">p</span><span class="p">){</span>
+ <span class="kt">int</span><span class="o">*</span> <span class="n">ip</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span><span class="o">*</span><span class="p">)</span><span class="n">p</span><span class="p">;</span>
+ <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+ <span class="kt">int</span> <span class="n">res</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span>
+ <span class="k">for</span><span class="p">(</span><span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="mi">5</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">){</span>
+  <span class="n">res</span> <span class="o">+=</span> <span class="n">ip</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+ <span class="p">}</span>
+ <span class="k">return</span> <span class="n">res</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Program argümanı string olarak alıyor ve bu değere bir integer pointer atıyor. Sonrasında da integer pointerların point ettiği değerleri toplayıp hash’i döndürüyor. Yani olan şey aslında şu,</p>
+
+<p>Programa <strong>AAAABBBBCCCCDDDDEEEE</strong> argümanını verdiğimizi düşünelim. Bu argümanlar stack’e şu şekilde yerleşecek.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="mh">0x41414141</span> <span class="mh">0x42424242</span> <span class="mh">0x43434343</span> <span class="mh">0x44444444</span> <span class="mh">0x45454545</span>
+</code></pre></div></div>
+
+<p><strong>check_password</strong> fonksiyonuna verilen <strong>p</strong> argümanı char pointer tipinde. <strong>p</strong>‘nin değerlerini şu şekilde gösterebiliriz:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'A'</span><span class="p">;</span>
+<span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'A'</span><span class="p">;</span>
+<span class="n">p</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'A'</span><span class="p">;</span>
+<span class="n">p</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'A'</span><span class="p">;</span>
+<span class="n">p</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'B'</span><span class="p">;</span>
+<span class="n">p</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'B'</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="p">...</span>
+</code></pre></div></div>
+
+<p>C programlama dilinde int’in boyutu 4 byte’tır. Program <strong>p</strong> değişkenini <strong>int *</strong> şeklinde ip değerine atınca bu sefer yukarıdaki gibi elemanlar 1 byte’lık kısımlar değil , integer’ın boyutu 4 byte olduğundan ötürü 4 byte’lık kısımlar tutacak.
+Yani <strong>ip</strong> değişkeni şu şekilde olacak:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ip</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="mh">0x41414141</span> <span class="c1">// AAAA</span>
+<span class="n">ip</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="mh">0x42424242</span> <span class="c1">// BBBB</span>
+<span class="n">ip</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="mh">0x43434343</span> <span class="c1">// CCCC</span>
+<span class="n">ip</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="mh">0x44444444</span> <span class="c1">// DDDD</span>
+<span class="n">ip</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="mh">0x45454545</span> <span class="c1">// EEEE</span>
+</code></pre></div></div>
+
+<p>Biz bu değerlerin toplamının <strong>0x21DD09EC</strong> yani <strong>568134124</strong> olduğu bir argüman girip sonuca ulaşabiliriz.
+Bunu yapmanın en kolay yolu string bir değer girmek yerine hexadecimal bir değer vererek direktman memory’ye etki etmek.</p>
+
+<h1 id="çözüm">Çözüm</h1>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./col <span class="sb">`</span>python <span class="nt">-c</span> <span class="s2">"print '</span><span class="se">\x</span><span class="s2">c8</span><span class="se">\x</span><span class="s2">ce</span><span class="se">\x</span><span class="s2">c5</span><span class="se">\x</span><span class="s2">06' * 4 + '</span><span class="se">\x</span><span class="s2">cc</span><span class="se">\x</span><span class="s2">ce</span><span class="se">\x</span><span class="s2">c5</span><span class="se">\x</span><span class="s2">06'"</span><span class="sb">`</span>
+</code></pre></div></div>
+
+</div>
+
+
+<div class="related">
+  <h2>İlgili paylaşımlar</h2>
+  
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/tr/2019/05/27/pwnable-flag-writeup/">
+            Pwnable.kr - flag | Çözüm
+            <small>27 May 2019</small>
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/tr/2019/05/27/pwnable-fd-writeup/">
+            Pwnable.kr - fd | Çözüm
+            <small>27 May 2019</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+      
+    
+    
+    
+    <footer class="lang-options">
+        <em>Bu sayfayı başka dilde okuyun:</em>
+        <ul>
+        
+        <li><a title="Şu dilde görüntüle:  English" class="en" href="/en/2019/05/27/pwnable-col-writeup/">🇺🇸 English</a></li>
+        
+        <li><a title="Şu dilde görüntüle:  Turkish" class="tr" href="/tr/2019/05/27/pwnable-col-writeup/">🇹🇷 Turkish</a></li>
+        
+        </ul>
+    </div>
+    
+
+    </div>
+  </body>
+</html>
